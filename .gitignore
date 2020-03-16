@@ -1,0 +1,6 @@
+.env/
+.ipynb_checkpoints/
+cdk.out/
+**/.ipynb_checkpoints/
+**/__pycache__/
+lambda_build/
