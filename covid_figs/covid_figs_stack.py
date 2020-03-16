@@ -8,11 +8,16 @@ from aws_cdk import (
 
 class CovidFigsStack(core.Stack):
 
+    def get_context(self, name):
+        val = self.node.try_get_context(name)
+        assert val, f"{name} context variable is not defined"
+        return val
+    
     def __init__(self, scope: core.Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
-        bucket_name = 'janos.experiements.neosperience.com'
-        bucket_prefix = 'covid_figs/'
+        bucket_name = self.get_context("bucket_name")
+        bucket_prefix = self.get_context("bucket_prefix")
 
         # Defines an AWS Lambda resource
         covid_figs_lambda = _lambda.Function(
