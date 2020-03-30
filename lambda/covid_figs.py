@@ -45,6 +45,12 @@ def handler(event, context):
         italia_last_remote = f's3://{bucket}/{last}'
     
     return {
-        'lombardia_last': lombardia_last_remote,
-        'italia_last': italia_last_remote
+        'lombardia': {
+            'url': lombardia_last_remote,
+            'last_modified': regional_ds.last_modified.replace(microsecond=0).astimezone().isoformat()
+        },
+        'italia': {
+            'url': italia_last_remote,
+            'last_modified': national_ds.last_modified.replace(microsecond=0).astimezone().isoformat()
+        }
     }
