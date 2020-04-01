@@ -20,12 +20,22 @@ class TimeSeriesViz:
     def diff(self):
         return self.series - self.series.shift()
     
-    def _config_axis(self, ax=None, figsize=None):
-        _figsize = figsize if figsize is not None else self.figsize
+    @staticmethod
+    def config_axis(ax=None, figsize=None, title=None, xgrid=True):
         if ax is None:
-            fig, ax = plt.subplots(figsize=_figsize)
+            fig, ax = plt.subplots(figsize=figsize)
         else:
             fig = plt.gcf()
+        ax.yaxis.grid(True, which='major')
+        if xgrid:
+            ax.xaxis.grid(True, which='major')
+        locator = mdates.DayLocator(interval=2)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_minor_locator(mdates.DayLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
+        ax.xaxis.set_label_text('')
+        if title:
+            ax.set_title(title)
         return fig, ax
 
     def _get_title(self, title):
@@ -58,49 +68,42 @@ class TimeSeriesViz:
         self.logger.info(f'Data saved to {fn_date} and {fn_last}')
         return fn_date, fn_last
     
-    def show_series(self, title, save_fig=False, save_csv=False, **kwargs):
-        fig, ax = self._config_axis(**kwargs)
+    def show_series(self, title, save_fig=False, save_csv=False, figsize=None, ax=None):
+        _figsize = figsize or self.figsize
+        fig, ax = TimeSeriesViz.config_axis(title=self._get_title(title), figsize=_figsize, ax=ax)
         ax.plot(self.series.index, self.series)
-        ax.set_title(self._get_title(title))
-        ax.xaxis.grid(True, which='major')
-        ax.yaxis.grid(True, which='major')
-        locator = mdates.DayLocator(interval=2)
-        ax.xaxis.set_major_locator(locator)
-        ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
-        ax.xaxis.set_label_text('')
         ax.set_xlim((self.series.index.min(), self.series.index.max()))
         if save_fig:
             self._save_fig('series')
         if save_csv:
             self._save_csv(self.series.to_frame(), 'series')
 
-    def show_new(self, title, save_fig=False, save_csv=False, **kwargs):
-        fig, ax = self._config_axis(**kwargs)
+    def show_new(self, title, save_fig=False, save_csv=False, figsize=None, ax=None):
+        _figsize = figsize or self.figsize
+        fig, ax = TimeSeriesViz.config_axis(title=self._get_title(title), xgrid=False, figsize=_figsize, ax=ax)
         diff = self.diff()
         ax.bar(diff.index, diff, align='center')
-        ax.set_title(self._get_title(title))
-        ax.yaxis.grid(True, which='major')
-        locator = mdates.DayLocator(interval=2)
-        ax.xaxis.set_major_locator(locator)
-        ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
         ax.set_xlim((diff.index.min() + pd.Timedelta(days=.5), diff.index.max() + pd.Timedelta(days=.5)))
         if save_fig:
             self._save_fig('new')
         if save_csv:
             self._save_csv(diff.to_frame(), 'new')
         
-    def show_growth_factor(self, title, lookback=1, window=3, raw=True, sma=True, ema=True, ylim=None, 
-                           save_fig=False, save_csv=False, **kwargs):
+    def show_growth_factor(self, title, lookback=1, window=3, raw=True, sma=True, smd=False, ema=True, ylim=None, 
+                           save_fig=False, save_csv=False, figsize=None, ax=None):
         diff = self.diff()
         growth_factor = diff / diff.shift(lookback)
-        fig, ax = self._config_axis(**kwargs)
-        ax.set_title(self._get_title(title))
+        _figsize = figsize or self.figsize
+        fig, ax = TimeSeriesViz.config_axis(title=self._get_title(title), figsize=_figsize, ax=ax)
         
         gf_sma = growth_factor.rolling(window).mean()
         gf_sma.name = f'{diff.name} (SMA {window} giorni)'
 
-        gf_ema = growth_factor.ewm(span=window).mean()
+        gf_ema = growth_factor.ewm(window).mean()
         gf_ema.name = f'{diff.name} (EMA {window} giorni)'
+        
+        gf_smd = growth_factor.rolling(window).median()
+        gf_smd.name = f'{diff.name} (SMD {window} giorni)'
 
         if raw:
             ax.plot(growth_factor.index, growth_factor, label=growth_factor.name)
@@ -110,14 +113,11 @@ class TimeSeriesViz:
 
         if ema:
             ax.plot(gf_ema.index, gf_ema, label=gf_ema.name)
+            
+        if smd:
+            ax.plot(gf_smd.index, gf_smd, label=gf_smd.name)
 
         ax.axhline(1.0, linestyle='--', linewidth=1, color='r')
-        ax.xaxis.grid(True, which='major')
-        ax.yaxis.grid(True, which='major')
-        locator = mdates.DayLocator(interval=2)
-        ax.xaxis.set_major_locator(locator)
-        ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
-        ax.xaxis.set_label_text('')
         ax.set_xlim((self.series.index.min(), self.series.index.max()))
         ax.legend()
         if ylim is not None:
